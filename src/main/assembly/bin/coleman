@@ -1,11 +1,6 @@
 #!/bin/bash
 
 COLEMAN_DIR="`dirname \`readlink -f $0\``"
-CLASSLIB=${COLEMAN_DIR}/../lib
-if [ -d ${CLASSLIB} ]; then
-	. ${COLEMAN_DIR}/classpath.sh ${CLASSLIB}
-	export CLASSPATH
-fi
 
 debug() {
 	echo "$*" >&2
