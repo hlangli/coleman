@@ -1,0 +1,60 @@
+#!/bin/bash
+
+CLASSNAME=`basename $1`
+if [ "${CLASSNAME}" != "${CLASSNAME/./a}" ]; then
+	CLASSNAME=${CLASSNAME%.*}
+fi
+TMP_DIR=/tmp/jash
+if [ ! -d ${TMP_DIR} ]; then
+	mkdir -p ${TMP_DIR}
+fi
+BASEFILE=${TMP_DIR}/${CLASSNAME}
+CLASSFILE=${BASEFILE}.class
+JAVAFILE=${BASEFILE}.java
+
+write() {
+	echo "$1" >> ${JAVAFILE}
+}
+
+if [ -f ${CLASSFILE} ]; then
+	if [ $1 -nt ${CLASSFILE} ]; then
+		rm ${CLASSFILE}
+	fi
+fi
+
+if [ ! -f ${CLASSFILE} ]; then
+	if [ -f ${JAVAFILE} ]; then
+		rm ${JAVAFILE}
+	fi
+	HEADER=true
+	while read line; do
+		if [ -n "${line}" ]; then
+			if [ "${line:0:1}" != "#" ]; then
+				if [ ${HEADER} = true ]; then
+					if [ "${line:0:7}" = "import " ]; then
+						write "${line}"
+					fi
+				else
+					write "		${line}"
+				fi
+			fi
+		else
+			if [ ${HEADER} = true ]; then
+				HEADER=false
+				write "public class ${CLASSNAME} {"
+				write "	public static void main(String[] args) throws Throwable {"
+			fi
+		fi
+	done < $1
+	write "	}"
+	write "}"
+	pushd ${TMP_DIR} > /dev/null
+		javac `basename ${JAVAFILE}`
+	popd > /dev/null
+fi
+
+pushd ${TMP_DIR} > /dev/null
+	shift
+	java `basename ${CLASSFILE} .class` $*
+popd > /dev/null
+

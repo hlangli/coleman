@@ -1,0 +1,54 @@
+#!/bin/jash
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+
+if(args.length < 1) {
+	System.err.println("Usage: xpath <xpath> [-r <text-replacement>]");
+	System.exit(1);
+}
+
+Document document = null;
+try {
+	DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+	document = documentBuilder.parse(System.in);
+	String replacement = args.length > 1 ? (args.length > 2 ? args[2] : "") : null;
+	if(document != null) {
+		XPath xpath = XPathFactory.newInstance().newXPath();
+		NodeList nl = (NodeList) xpath.evaluate(args[0], document, XPathConstants.NODESET);
+		for(int i=0; nl != null && i<nl.getLength(); i++) {
+			Node node = nl.item(i);
+			if(replacement != null) {
+				if(node.getNodeType() == Node.TEXT_NODE) {
+					node.setTextContent(replacement);
+				}
+			}
+			else {
+				System.out.println(node.getTextContent());
+			}
+		}
+	}
+	else {
+		System.err.println("Input missing or not XML");
+	}
+	if(replacement != null) {
+		Transformer transformer = TransformerFactory.newInstance().newTransformer();
+		DOMSource domSource = new DOMSource(document);
+		StreamResult streamResult = new StreamResult(System.out);
+		transformer.transform(domSource, streamResult);
+	}
+}
+catch(Exception e) {
+	e.printStackTrace(System.err);
+	System.exit(1);
+}
+

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+SCM_CHANGE=`svn update | tail -1 | cut -d " " -f 1`
+
+if [ "${SCM_CHANGE}" != "Updated" ]; then
+	exit 1
+fi
+

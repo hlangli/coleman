@@ -1,0 +1,148 @@
+#!/bin/bash
+
+COLEMAN_DIR="`dirname \`readlink -f $0\``"
+CLASSLIB=${COLEMAN_DIR}/../lib
+if [ -d ${CLASSLIB} ]; then
+	. ${COLEMAN_DIR}/classpath.sh ${CLASSLIB}
+	export CLASSPATH
+fi
+
+debug() {
+	echo "$*" >&2
+}
+
+if [ $# -ne 1 ]; then
+	debug "Usage: `basename $0` <check-interval>"
+	exit 1
+fi
+
+CHECK_INTERVAL_IN_SECS=$1
+BUILT_DIRS=
+LOG=/tmp/coleman.log
+
+initializeJash() {
+	for file in ${COLEMAN_DIR}/*; do
+		HEADER="`head -1 ${file}`"
+		if [ "${HEADER:0:2}" == "#!" ] && [ "${HEADER: -4}" == "jash" ]; then
+			JASH="${HEADER:2}"
+			if [ ! -x ${JASH} ]; then
+				echo "#!${COLEMAN_DIR}/jash" > ${file}.tmp
+				tail --lines +2 ${file} >> ${file}.tmp
+				mv ${file}.tmp ${file}
+			fi
+		fi 
+	done
+}
+
+initializeANSI() {
+	esc="`echo -e "\033"`"
+
+	blackf="${esc}[30m";   redf="${esc}[31m";    greenf="${esc}[32m"
+	yellowf="${esc}[33m"   bluef="${esc}[34m";   purplef="${esc}[35m"
+	cyanf="${esc}[36m";    whitef="${esc}[37m"
+
+	blackb="${esc}[40m";   redb="${esc}[41m";    greenb="${esc}[42m"
+	yellowb="${esc}[43m"   blueb="${esc}[44m";   purpleb="${esc}[45m"
+	cyanb="${esc}[46m";    whiteb="${esc}[47m"
+
+	boldon="${esc}[1m";    boldoff="${esc}[22m"
+	italicson="${esc}[3m"; italicsoff="${esc}[23m"
+	ulon="${esc}[4m";      uloff="${esc}[24m"
+	invon="${esc}[7m";     invoff="${esc}[27m"
+
+	reset="${esc}[0m"
+}
+
+pushdir() {
+	pushd $* > /dev/null
+}
+
+popdir() {
+	popd > /dev/null
+}
+
+log() {
+	echo "$*" | tee -a ${LOG}
+}
+
+domainname() {
+	DOMAIN_NAME=`nslookup \`hostname\`|grep "^Name:	"|sed "s/^Name:	.[^\.]*\.//"`
+	if [ "${DOMAIN_NAME}" == "" ]; then
+		DOMAIN_NAME="no-domain.org"
+	fi
+	echo "${DOMAIN_NAME}"
+}
+
+main() {
+	for POM in `${COLEMAN_DIR}/coleman-trunk-poms`; do
+		pushdir `dirname "${POM}"`
+			if ! ${COLEMAN_DIR}/coleman-ignore; then
+				if [[ "${BUILT_DIRS/;${POM};/}" == "${BUILT_DIRS}" ]] || ${COLEMAN_DIR}/coleman-scm-change; then
+					build "${POM}"
+					BUILT_DIRS="${BUILT_DIRS};${POM};"
+				fi
+			fi
+		popdir
+	done
+}
+
+build() {
+	POM=$1
+	GROUP_ID=`cat pom.xml | ${COLEMAN_DIR}/xpath "/project/groupId"`
+	ARTIFACT_ID=`cat pom.xml | ${COLEMAN_DIR}/xpath "/project/artifactId"`
+	VERSION=`cat pom.xml | ${COLEMAN_DIR}/xpath "/project/version"`
+	cat ${COLEMAN_DIR}/coleman.ascii > ${LOG}
+	echo -n "${boldon}${yellowf}"
+	log "------------------------------------------------------------------------"
+	echo -n "${reset}"
+	echo "Building artifact: ${boldon}${purplef}${GROUP_ID}.${whitef}${ARTIFACT_ID} ${cyanf}${VERSION}${reset}"
+	echo "Building artifact: ${GROUP_ID}.${ARTIFACT_ID} ${VERSION}" >> ${LOG}
+	echo -n "${boldon}${yellowf}"
+	log "------------------------------------------------------------------------"
+	echo -n "${reset}"
+	coleman-build "${POM}" | tee -a ${LOG}
+}
+
+coleman-build() {
+	POM=$1
+	mvn package
+	if [ $? -eq 0 ]; then
+		rm ${LOG}
+		echo -n "${boldon}${greenf}" >&2
+		cat ${COLEMAN_DIR}/build-fine.ascii
+		echo -n "${reset}" >&2
+	else
+		echo -n "${boldon}${redf}" >&2
+		cat ${COLEMAN_DIR}/build-fail.ascii
+		DEVELOPERS_FOUND=false
+		UFS="${IFS}"
+		IFS="
+"
+		for receiver in `echo pom.xml | ${COLEMAN_DIR}/coleman-email-addresses`; do
+			DEVELOPERS_FOUND=true
+			debug "${reset}${whitef}Emailing ${boldon}${receiver}${reset}"
+			cat ${LOG} | ${COLEMAN_DIR}/email --from "Coleman <`hostname`@`domainname`>" --to "${receiver}" --subject "Build of ${GROUP_ID}.${ARTIFACT_ID} ${VERSION} failed"
+		done
+		IFS=${UFS}
+		if [ "${DEVELOPERS_FOUND}" == "false" ]; then
+			debug "${reset}${whitef}No developers on project means no email-alerts${reset}"
+		fi
+		echo -n "${boldon}${redf}" >&2
+		debug "------------------------------------------------------------------------"
+		echo -n "${reset}" >&2
+	fi
+}
+
+initializeANSI
+initializeJash
+
+echo -n "${boldon}${yellowf}"
+cat ${COLEMAN_DIR}/coleman.ascii | tee ${LOG}
+echo -n "${reset}"
+
+while [ true ]; do
+	main
+#	echo "Sleeping ${CHECK_INTERVAL_IN_SECS} seconds..."
+	sleep ${CHECK_INTERVAL_IN_SECS}
+done
+

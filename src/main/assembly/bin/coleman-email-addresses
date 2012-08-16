@@ -1,0 +1,10 @@
+#!/bin/bash
+
+while read pomfile; do
+	for developerid in `cat ${pomfile} | xpath.jash "/project/developers/developer/id"`; do
+		developername=`cat ${pomfile} | xpath.jash "/project/developers/developer[id='${developerid}']/name"`
+		developeremail=`cat ${pomfile} | xpath.jash "/project/developers/developer[id='${developerid}']/email"`
+		echo "\"${developername} (${developerid})\" <${developeremail}>"
+	done
+done
+
