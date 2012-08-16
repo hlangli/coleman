@@ -10,8 +10,8 @@ It currently only works with Subversion checkouts, but support for other version
 How to use:
 ===========
 
-$ cd <maven-projects-parent-dir>
-$ <coleman-dir>/bin/coleman <check-interval-in-seconds>
+$ cd &lt;maven-projects-parent-dir&gt;
+$ &lt;coleman-dir&gt;/bin/coleman &lt;check-interval-in-seconds&gt;
 
 If a build fails, and it has one or more /project/developers/developer nodes in the pom, it will send an email to each developer with the log-output from coleman.
 
