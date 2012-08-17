@@ -1,0 +1,29 @@
+#!/bin/bash
+
+COLEMAN_DIR="`dirname \`readlink -f $0\``"
+
+pushdir() {
+	pushd "$*" > /dev/null
+}
+
+popdir() {
+	popd > /dev/null
+}
+
+findpoms() {
+	local DIR=$1
+	if [ -f "pom.xml" ]; then
+		echo "${DIR}/pom.xml"
+	else
+		for dir in *; do
+			if [ -d "${dir}" ]; then
+				pushdir "${dir}"
+					findpoms "${DIR}/${dir}"
+				popdir
+			fi
+		done
+	fi
+}
+
+findpoms .
+

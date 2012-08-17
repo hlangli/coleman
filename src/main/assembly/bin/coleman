@@ -69,7 +69,7 @@ domainname() {
 }
 
 main() {
-	for POM in `${COLEMAN_DIR}/coleman-trunk-poms`; do
+	for POM in `${COLEMAN_DIR}/coleman-poms`; do
 		pushdir `dirname "${POM}"`
 			if ! ${COLEMAN_DIR}/coleman-ignore; then
 				if [[ "${BUILT_DIRS/;${POM};/}" == "${BUILT_DIRS}" ]] || ${COLEMAN_DIR}/coleman-scm-change; then
